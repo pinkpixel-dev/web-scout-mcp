@@ -1,19 +1,7 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
 startCommand:
-  type: stdio
-  configSchema: object
-  commandFunction: |-
-    (config) => ({
-      "command": "node",
-        "args": ["dist/index.js"],
-        "env": {}
-  {
-  name: "web-scout",
-  description: "An MCP server with tools for searching the web with DuckDuckGo and extracting content from multiple URLs.",
-  version: "1.3.0",
-  }
-  capabilities: {
-    tools: {DuckDuckGoWebSearch, UrlContentExtractor},      
-    }
-  build:
-    dockerfile: "./Dockerfile"
-    dockerBuildPath: "./app"
+  type: http
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    {}
