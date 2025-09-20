@@ -162,7 +162,7 @@ For more detailed information about the project, check out these resources:
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Apache 2.0 License](LICENSE).
 
 <p align="center">
   <sub>Made with ❤️ by <a href="https://pinkpixel.dev">Pink Pixel</a></sub>

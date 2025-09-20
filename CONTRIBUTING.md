@@ -84,7 +84,7 @@ npm start
 
 ## License
 
-By contributing to this project, you agree that your contributions will be licensed under the project's MIT license.
+By contributing to this project, you agree that your contributions will be licensed under the project's Apache 2.0 license.
 
 ---
 
