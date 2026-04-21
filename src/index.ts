@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { z } from "zod";
+import { tavily } from "@tavily/core";
 
 // Define the Context interface if not already defined
 interface Context {
@@ -424,6 +425,78 @@ server.registerTool(
     };
   },
 );
+
+// Conditionally register Tavily search tool when API key is available
+const tavilyApiKey = (config.TAVILY_API_KEY as string) || process.env.TAVILY_API_KEY;
+if (tavilyApiKey) {
+  const tavilyClient = tavily({ apiKey: tavilyApiKey });
+
+  server.registerTool(
+    "TavilyWebSearch",
+    {
+      description:
+        "Initiates a web search query using the Tavily search API and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using Tavily as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
+      inputSchema: {
+        query: z
+          .string()
+          .min(1, "Query is required")
+          .describe("Search query string"),
+        maxResults: z
+          .number()
+          .int()
+          .min(1)
+          .max(20)
+          .optional()
+          .describe("Maximum number of results to return (default: 10)"),
+      },
+    },
+    async (args) => {
+      try {
+        const response = await tavilyClient.search(args.query, {
+          maxResults: args.maxResults ?? 10,
+        });
+
+        if (!response.results || response.results.length === 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "No results were found for your search query. Please try rephrasing your search or try again in a few minutes.",
+              },
+            ],
+            isError: false,
+          };
+        }
+
+        const output: string[] = [];
+        output.push(`Found ${response.results.length} search results:\n`);
+
+        for (let i = 0; i < response.results.length; i++) {
+          const result = response.results[i];
+          output.push(`${i + 1}. ${result.title}`);
+          output.push(`   URL: ${result.url}`);
+          output.push(`   Summary: ${result.content}`);
+          output.push("");
+        }
+
+        return {
+          content: [{ type: "text", text: output.join("\n") }],
+          isError: false,
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error performing Tavily search: ${(error as Error).message}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+}
 
 server.registerTool(
   "UrlContentExtractor",

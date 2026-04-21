@@ -1,1 +1,7 @@
 runtime: "typescript"
+configSchema:
+  type: object
+  properties:
+    TAVILY_API_KEY:
+      type: string
+      description: "Optional Tavily API key. When set, enables the TavilyWebSearch tool."
