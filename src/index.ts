@@ -490,14 +490,15 @@ if (tavilyApiKey) {
           isError: false,
         };
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         return {
           content: [
             {
               type: "text",
-              text: `Error performing Tavily search: ${(error as Error).message}`,
+              text: `Error performing Tavily search: ${errorMessage}`,
             },
           ],
-          isError: true,
+          isError: false,
         };
       }
     },
