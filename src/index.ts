@@ -354,9 +354,10 @@ class WebContentFetcher {
             return { url, content };
           } catch (error) {
             // Handle errors for individual URLs
+            console.error(`Error processing URL ${url}:`, error);
             return { 
               url, 
-              content: `Error processing URL: ${(error as Error).message}` 
+              content: `Error: An unexpected error occurred while fetching the webpage.` 
             };
           }
         })
@@ -490,11 +491,12 @@ if (tavilyApiKey) {
           isError: false,
         };
       } catch (error) {
+        console.error("TavilyWebSearch error:", error);
         return {
           content: [
             {
               type: "text",
-              text: `Error performing Tavily search: ${(error as Error).message}`,
+              text: "An error occurred while performing the Tavily search. Please try again.",
             },
           ],
           isError: true,
