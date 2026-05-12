@@ -427,7 +427,13 @@ server.registerTool(
 );
 
 // Conditionally register Tavily search tool when API key is available
-const tavilyApiKey = (config.TAVILY_API_KEY as string) || process.env.TAVILY_API_KEY;
+const tavilyApiKeyCandidates = [
+  config.TAVILY_API_KEY,
+  process.env.TAVILY_API_KEY,
+];
+const tavilyApiKey = tavilyApiKeyCandidates.find(
+  (value): value is string => typeof value === "string" && value.trim().length > 0,
+)?.trim();
 if (tavilyApiKey) {
   const tavilyClient = tavily({ apiKey: tavilyApiKey });
 
