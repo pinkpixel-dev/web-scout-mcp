@@ -14,12 +14,13 @@
 </p>
 
 <p align="center">
-  An MCP server for web search using DuckDuckGo and content extraction, with support for multiple URLs and memory optimizations.
+  An MCP server for web search using DuckDuckGo and Tavily, plus content extraction, with support for multiple URLs and memory optimizations.
 </p>
 
 ## ✨ Features
 
-- 🔍 **DuckDuckGo Search**: Fast and privacy-focused web search capability
+- 🔍 **DuckDuckGo Search**: Fast and privacy-focused web search capability (no API key required)
+- 🌐 **Tavily Search**: AI-powered web search via the Tavily API (enabled when `TAVILY_API_KEY` is set)
 - 📄 **Content Extraction**: Clean, readable text extraction from web pages
 - 🚀 **Parallel Processing**: Support for extracting content from multiple URLs simultaneously
 - 💾 **Memory Optimization**: Smart memory management to prevent application crashes
@@ -78,19 +79,41 @@ Add this to your MCP client's `config.json` (Claude Desktop, Cursor, etc.):
 
 ### Environment Variables
 
-Set the `WEB_SCOUT_DISABLE_AUTOSTART=1` environment variable when embedding the package and calling `createServer()` yourself. By default running the published entrypoint (for example `node dist/index.js` or `npx @pinkpixel/web-scout-mcp`) automatically bootstraps the stdio transport.
+| Variable | Required | Description |
+|---|---|---|
+| `TAVILY_API_KEY` | Optional | When set, enables the **TavilyWebSearch** tool. Obtain a key at [https://tavily.com](https://tavily.com). |
+| `WEB_SCOUT_DISABLE_AUTOSTART` | Optional | Set to `1` when embedding the package and calling `createServer()` yourself. By default running the published entrypoint (for example `node dist/index.js` or `npx @pinkpixel/web-scout-mcp`) automatically bootstraps the stdio transport. |
+
+To enable Tavily search, add the key to your MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "web-scout": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@pinkpixel/web-scout-mcp@latest"
+      ],
+      "env": {
+        "TAVILY_API_KEY": "tvly-your-api-key-here"
+      }
+    }
+  }
+}
+```
 
 ## 🧰 Tools
 
-The server provides the following MCP tools:
+The server exposes two always-available tools and one optional tool:
 
 ### 🔍 DuckDuckGoWebSearch
 
-Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings.
+Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. No API key required.
 
 **Input:**
 - `query` (string): The search query string
-- `maxResults` (number, optional): Maximum number of results to return (default: 10)
+- `maxResults` (number, optional): Maximum number of results to return (default: 10, max: 25)
 
 **Example:**
 ```json
@@ -102,6 +125,28 @@ Initiates a web search query using the DuckDuckGo search engine and returns a we
 
 **Output:**
 A formatted list of search results with titles, URLs, and snippets.
+
+### 🌐 TavilyWebSearch *(optional — requires `TAVILY_API_KEY`)*
+
+Initiates a web search query using the Tavily search API and returns a well-structured list of findings. This tool is only registered when a valid `TAVILY_API_KEY` environment variable (or Smithery config value) is provided.
+
+**Input:**
+- `query` (string): The search query string
+- `maxResults` (number, optional): Maximum number of results to return (default: 10, max: 20)
+
+**Example:**
+```json
+{
+  "query": "latest advancements in AI",
+  "maxResults": 5
+}
+```
+
+**Output:**
+A formatted list of search results with titles, URLs, and summaries.
+
+**Enabling Tavily Search:**
+Set the `TAVILY_API_KEY` environment variable (see [Environment Variables](#environment-variables)) or provide it via your Smithery config. Obtain a key at [https://tavily.com](https://tavily.com).
 
 ### 📄 UrlContentExtractor
 

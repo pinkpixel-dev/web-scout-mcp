@@ -4,13 +4,14 @@
 
 ## 🎯 Project Overview
 
-The Web Scout MCP Server is a robust Model Context Protocol (MCP) server implementation that provides comprehensive web search and content extraction capabilities. Built with TypeScript and Node.js, it enables AI assistants and other MCP clients to seamlessly access real-time information from the web through DuckDuckGo search and intelligent content extraction from web pages.
+The Web Scout MCP Server is a robust Model Context Protocol (MCP) server implementation that provides comprehensive web search and content extraction capabilities. Built with TypeScript and Node.js, it enables AI assistants and other MCP clients to seamlessly access real-time information from the web through DuckDuckGo search, optional Tavily search, and intelligent content extraction from web pages.
 
 This server is designed as a production-ready solution for AI systems that need reliable access to current web information while maintaining optimal performance through advanced memory management and rate limiting.
 
 ## ✨ Key Features
 
-- **🔍 DuckDuckGo Search**: Privacy-focused web search with intelligent result filtering
+- **🔍 DuckDuckGo Search**: Privacy-focused web search with intelligent result filtering (no API key required)
+- **🌐 Tavily Search**: AI-powered web search via the Tavily API (enabled when `TAVILY_API_KEY` is set)
 - **📄 Web Content Extraction**: Clean text extraction from web pages with HTML parsing
 - **🚀 Parallel Processing**: Concurrent extraction from multiple URLs with smart batching
 - **💾 Advanced Memory Management**: Sophisticated memory optimization to prevent crashes
@@ -43,15 +44,20 @@ The project follows a modular architecture with clear separation of concerns:
 2. **DuckDuckGoSearcher**: Implements privacy-focused web search functionality
 3. **WebContentFetcher**: Advanced content extraction with memory optimizations
 4. **RateLimiter**: Intelligent request throttling system
+5. **TavilyWebSearch** *(optional)*: AI-powered search registered conditionally when `TAVILY_API_KEY` is provided
 
 ## 🔬 Technical Implementation Details
 
 ### 📡 MCP Server Implementation
 
-The server leverages the `@modelcontextprotocol/sdk` (v1.11.1) and exposes exactly two MCP tools:
+The server leverages the `@modelcontextprotocol/sdk` (v1.18.1) and always exposes two MCP tools:
 
-- **`DuckDuckGoWebSearch`**: Web search with configurable result limits
+- **`DuckDuckGoWebSearch`**: Web search with configurable result limits (no API key required)
 - **`UrlContentExtractor`**: Content extraction supporting both single and batch operations
+
+When a valid `TAVILY_API_KEY` is provided (via environment variable or Smithery config), a third tool is also registered:
+
+- **`TavilyWebSearch`**: AI-powered web search via the Tavily API
 
 The server uses `StdioServerTransport` for communication, ensuring compatibility with all MCP clients including Claude Desktop, Cursor, and other AI development environments.
 
@@ -141,8 +147,9 @@ Implements sliding window rate limiting:
 
 **Production Dependencies:**
 - `@modelcontextprotocol/sdk`: ^1.18.1 (MCP protocol implementation)
-- `axios`: ^3.2.6 (HTTP client)
-- `cheerio`: ^1.12.2 (HTML parsing)
+- `@tavily/core`: ^0.6.1 (Tavily search API client)
+- `axios`: ^1.12.2 (HTTP client)
+- `cheerio`: ^1.1.2 (HTML parsing)
 - `uuid`: ^13.0.0 (Unique ID generation for temp files)
 - `async`: ^3.2.6 (Async utilities)
 - `zod`: ^3.23.8 (Schema validation)
@@ -198,7 +205,7 @@ docker run -i web-scout-mcp
 
 ### ⚙️ MCP Client Configuration
 
-Add to your MCP client's configuration:
+Add to your MCP client's configuration (without Tavily):
 
 ```json
 {
@@ -211,21 +218,61 @@ Add to your MCP client's configuration:
 }
 ```
 
+To enable the optional **TavilyWebSearch** tool, add your API key:
+
+```json
+{
+  "mcpServers": {
+    "web-scout": {
+      "command": "npx",
+      "args": ["-y", "@pinkpixel/web-scout-mcp"],
+      "env": {
+        "TAVILY_API_KEY": "tvly-your-api-key-here"
+      }
+    }
+  }
+}
+```
+
 ## 🧰 MCP Tools Specification
 
 ### 🔍 DuckDuckGoWebSearch
 
-**Purpose**: Performs privacy-focused web searches using DuckDuckGo
+**Purpose**: Performs privacy-focused web searches using DuckDuckGo (no API key required)
 
 **Input Schema**:
 ```json
 {
   "query": "string (required)",
-  "maxResults": "number (optional, default: 10)"
+  "maxResults": "number (optional, default: 10, max: 25)"
 }
 ```
 
 **Output**: Formatted text with numbered results including titles, URLs, and snippets
+
+**Example Usage**:
+```json
+{
+  "query": "latest developments in AI safety",
+  "maxResults": 5
+}
+```
+
+### 🌐 TavilyWebSearch *(optional — requires `TAVILY_API_KEY`)*
+
+**Purpose**: Performs AI-powered web searches using the Tavily search API. This tool is only registered when a valid `TAVILY_API_KEY` environment variable or Smithery config value is provided.
+
+**Enabling**: Set `TAVILY_API_KEY` in your environment or MCP client config (see [MCP Client Configuration](#️-mcp-client-configuration)). Obtain a key at [https://tavily.com](https://tavily.com).
+
+**Input Schema**:
+```json
+{
+  "query": "string (required)",
+  "maxResults": "number (optional, default: 10, max: 20)"
+}
+```
+
+**Output**: Formatted text with numbered results including titles, URLs, and summaries
 
 **Example Usage**:
 ```json
@@ -265,7 +312,8 @@ Add to your MCP client's configuration:
 ## 🔐 Security & Performance
 
 ### 🛡️ Security Features
-- No API keys required (uses DuckDuckGo HTML interface)
+- DuckDuckGo search requires no API keys (uses DuckDuckGo HTML interface)
+- Tavily search uses an optional API key stored only in environment/config (never logged)
 - Input validation and sanitization
 - Rate limiting to prevent abuse
 - Error handling that doesn't expose system information
@@ -291,7 +339,7 @@ Docker image available with multi-stage builds for optimized container size.
 
 ## 📄 Project Information
 
-- **Version**: 1.5.0
+- **Version**: 1.5.5
 - **License**: MIT
 - **Author**: Pink Pixel (admin@pinkpixel.dev)
 - **Repository**: https://github.com/pinkpixel-dev/web-scout-mcp

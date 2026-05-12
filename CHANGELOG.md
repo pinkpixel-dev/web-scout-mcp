@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **TavilyWebSearch** tool: AI-powered web search via the Tavily API, registered conditionally when a valid `TAVILY_API_KEY` environment variable or Smithery config value is present.
+- Documentation updated in `README.md` and `OVERVIEW.md` to describe all three tools, how to enable Tavily via `TAVILY_API_KEY`, and updated MCP client configuration examples.
+
 ## [1.5.5] - 2025-09-19
 
 ### Added
