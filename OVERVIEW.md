@@ -1,6 +1,6 @@
 # Web Scout MCP Server - Technical Overview 📡
 
-*Last updated: September 19, 2025*
+_Last updated: September 19, 2025_
 
 ## 🎯 Project Overview
 
@@ -59,13 +59,13 @@ The server uses `StdioServerTransport` for communication, ensuring compatibility
 const server = new Server(
   {
     name: "web-scout",
-    version: "1.5.5"
+    version: "1.5.6",
   },
   {
     capabilities: {
-      tools: {}
-    }
-  }
+      tools: {},
+    },
+  },
 );
 ```
 
@@ -80,6 +80,7 @@ Implements web search through DuckDuckGo's HTML interface with the following fea
 - **Structured Results**: Returns formatted results optimized for LLM consumption
 
 **Key Implementation Features:**
+
 - Rate limiting: 30 requests per minute
 - Request timeout: 30 seconds
 - Comprehensive error handling with context logging
@@ -132,6 +133,7 @@ Implements sliding window rate limiting:
 ## 🛠️ Development Environment
 
 ### 📋 Requirements
+
 - **Node.js**: >=18.0.0
 - **TypeScript**: ^5.8.3
 - **ES Modules**: Full ES module support
@@ -140,6 +142,7 @@ Implements sliding window rate limiting:
 ### 🔗 Dependencies
 
 **Production Dependencies:**
+
 - `@modelcontextprotocol/sdk`: ^1.18.1 (MCP protocol implementation)
 - `axios`: ^3.2.6 (HTTP client)
 - `cheerio`: ^1.12.2 (HTML parsing)
@@ -149,6 +152,7 @@ Implements sliding window rate limiting:
 - `jsdoctypeparser`: ^9.0.0 (Type parsing)
 
 **Development Dependencies:**
+
 - `@types/node`: ^24.5.2
 - `typescript`: ^5.9.2
 
@@ -218,6 +222,7 @@ Add to your MCP client's configuration:
 **Purpose**: Performs privacy-focused web searches using DuckDuckGo
 
 **Input Schema**:
+
 ```json
 {
   "query": "string (required)",
@@ -228,6 +233,7 @@ Add to your MCP client's configuration:
 **Output**: Formatted text with numbered results including titles, URLs, and snippets
 
 **Example Usage**:
+
 ```json
 {
   "query": "latest developments in AI safety",
@@ -240,6 +246,7 @@ Add to your MCP client's configuration:
 **Purpose**: Extracts clean, readable content from web pages
 
 **Input Schema**:
+
 ```json
 {
   "url": "string | string[] (required)"
@@ -247,24 +254,24 @@ Add to your MCP client's configuration:
 ```
 
 **Features**:
+
 - Single URL processing returns plain text
 - Multiple URL processing returns JSON object with URL->content mapping
 - Automatic content truncation at 8000 characters
 - Memory-efficient batch processing
 
 **Example Usage**:
+
 ```json
 {
-  "url": [
-    "https://example.com/article1",
-    "https://example.com/article2"
-  ]
+  "url": ["https://example.com/article1", "https://example.com/article2"]
 }
 ```
 
 ## 🔐 Security & Performance
 
 ### 🛡️ Security Features
+
 - No API keys required (uses DuckDuckGo HTML interface)
 - Input validation and sanitization
 - Rate limiting to prevent abuse
@@ -272,6 +279,7 @@ Add to your MCP client's configuration:
 - Temporary file cleanup to prevent information leakage
 
 ### ⚡ Performance Optimizations
+
 - Memory-aware processing to prevent crashes
 - Intelligent batching based on system resources
 - Request pooling and timeout management
@@ -281,12 +289,15 @@ Add to your MCP client's configuration:
 ## 🚀 Deployment
 
 ### 🌐 Smithery Platform
+
 The server is available on [Smithery](https://smithery.ai/server/@pinkpixel-dev/web-scout-mcp) for easy installation and management.
 
 ### 📦 NPM Registry
+
 Published as `@pinkpixel/web-scout-mcp` on npm registry for global installation.
 
 ### 🐳 Docker Hub
+
 Docker image available with multi-stage builds for optimized container size.
 
 ## 📄 Project Information

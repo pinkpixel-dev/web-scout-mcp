@@ -1,6 +1,6 @@
 {
   "name": "@pinkpixel/web-scout-mcp",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "MCP server for web search and content extraction with multiple URL support and memory optimizations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,7 +17,6 @@
     "dev": "npx @smithery/cli dev",
     "start": "node dist/index.js",
     "production": "npm run build"
-
   },
   "repository": {
     "type": "git",
@@ -39,12 +38,13 @@
     "axios": "^1.12.2",
     "cheerio": "^1.1.2",
     "jsdoctypeparser": "^9.0.0",
+    "tsc": "^2.0.4",
     "uuid": "^13.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"
