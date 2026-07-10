@@ -4,4 +4,5 @@ configSchema:
   properties:
     KEENABLE_API_KEY:
       type: string
+      format: password
       description: "Optional Keenable API key. KeenableWebSearch is keyless by default; setting this only lifts the rate limit."
