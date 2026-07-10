@@ -103,6 +103,25 @@ Initiates a web search query using the DuckDuckGo search engine and returns a we
 **Output:**
 A formatted list of search results with titles, URLs, and snippets.
 
+### 🔎 KeenableWebSearch
+
+Initiates a web search query using the [Keenable](https://keenable.ai) search API and returns a well-structured list of findings. **Keyless by default** — no API key required (public endpoint, rate-limited). Setting the optional `KEENABLE_API_KEY` (Smithery config or environment) only lifts the rate limit.
+
+**Input:**
+- `query` (string): The search query string
+- `maxResults` (number, optional): Maximum number of results to return (default: 10)
+
+**Example:**
+```json
+{
+  "query": "latest advancements in AI",
+  "maxResults": 5
+}
+```
+
+**Output:**
+A formatted list of search results with titles, URLs, and summaries.
+
 ### 📄 UrlContentExtractor
 
 Fetches and extracts clean, readable content from web pages by removing unnecessary elements like scripts, styles, and navigation.

@@ -471,6 +471,94 @@ server.registerTool(
   },
 );
 
+// Keenable web search. Registered unconditionally: it is keyless by default
+// (public endpoint, rate-limited). An optional KEENABLE_API_KEY only lifts the
+// rate limit; it is read from the Smithery config first, then the environment.
+const keenableApiKey = [
+  config.KEENABLE_API_KEY,
+  process.env.KEENABLE_API_KEY,
+].find(
+  (value): value is string => typeof value === "string" && value.trim().length > 0,
+)?.trim();
+
+server.registerTool(
+  "KeenableWebSearch",
+  {
+    description:
+      "Initiates a web search query using the Keenable search API and returns a well-structured list of findings. Keyless by default (no API key required). Input the keywords, question, or topic you want to search for as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
+    inputSchema: {
+      query: z
+        .string()
+        .min(1, "Query is required")
+        .describe("Search query string"),
+      maxResults: z
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Maximum number of results to return (default: 10)"),
+    },
+  },
+  async (args) => {
+    try {
+      const endpoint = keenableApiKey
+        ? "https://api.keenable.ai/v1/search"
+        : "https://api.keenable.ai/v1/search/public";
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "X-Keenable-Title": "web-scout-mcp",
+      };
+      if (keenableApiKey) {
+        headers["X-API-Key"] = keenableApiKey;
+      }
+
+      const response = await axios.post(
+        endpoint,
+        { query: args.query, mode: "pro" },
+        { headers, timeout: 15000 },
+      );
+
+      const results = (response.data?.results ?? []).slice(0, args.maxResults ?? 10);
+      if (results.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "No results were found for your search query. Please try rephrasing your search or try again in a few minutes.",
+            },
+          ],
+          isError: false,
+        };
+      }
+
+      const output: string[] = [`Found ${results.length} search results:\n`];
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        output.push(`${i + 1}. ${result.title ?? ""}`);
+        output.push(`   URL: ${result.url ?? ""}`);
+        output.push(`   Summary: ${result.description ?? ""}`);
+        output.push("");
+      }
+
+      return {
+        content: [{ type: "text", text: output.join("\n") }],
+        isError: false,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error performing Keenable search: ${(error as Error).message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
 return server.server; // Must return the MCP server object
 }
 
