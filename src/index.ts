@@ -82,6 +82,115 @@ class RateLimiter {
 }
 
 /**
+ * You.com search implementation using the You.com Search API.
+ * Requires YDC_API_KEY environment variable to be set.
+ * Get a key at https://you.com/platform/api-keys
+ */
+class YouSearcher {
+  private static readonly BASE_URL = "https://api.you.com/v1/search";
+
+  private rateLimiter: RateLimiter;
+
+  constructor() {
+    this.rateLimiter = new RateLimiter(30);
+  }
+
+  formatResultsForLLM(results: SearchResult[]): string {
+    if (!results.length) {
+      return "No results were found for your search query. Please try rephrasing your search.";
+    }
+
+    const output: string[] = [];
+    output.push(`Found ${results.length} search results:\n`);
+
+    for (const result of results) {
+      output.push(`${result.position}. ${result.title}`);
+      output.push(`   URL: ${result.link}`);
+      output.push(`   Summary: ${result.snippet}`);
+      output.push("");
+    }
+
+    return output.join("\n");
+  }
+
+  async search(query: string, ctx: Context, maxResults: number = 10): Promise<SearchResult[]> {
+    try {
+      const apiKey = process.env.YDC_API_KEY;
+      if (!apiKey) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "YDC_API_KEY is required for You.com search. Get a key at https://you.com/platform/api-keys"
+        );
+      }
+
+      await this.rateLimiter.acquire();
+
+      const headers: Record<string, string> = {
+        "User-Agent": "web-scout-mcp/1.5.8 (You.com Integration)",
+        "X-API-Key": apiKey,
+      };
+
+      const response = await axios.get(YouSearcher.BASE_URL, {
+        headers,
+        params: { query, count: maxResults },
+        timeout: 30000,
+      });
+
+      const data = response.data;
+      const results: SearchResult[] = [];
+
+      // You.com Search API returns web results in data.results.web
+      const items: Array<Record<string, unknown>> =
+        data.results?.web ??
+        data.results ??
+        data.hits ??
+        [];
+
+      if (!Array.isArray(items)) {
+        await ctx.error("Unexpected You.com API response format");
+        return [];
+      }
+
+      for (let i = 0; i < items.length && i < maxResults; i++) {
+        const item = items[i];
+        const title = typeof item.title === "string" ? item.title
+          : typeof item.name === "string" ? item.name
+          : "";
+        const link = typeof item.url === "string" ? item.url
+          : typeof item.link === "string" ? item.link
+          : "";
+
+        // item.snippets is an array of query-relevant excerpts
+        const snippet = Array.isArray(item.snippets) && item.snippets.length > 0
+          ? String(item.snippets[0])
+          : typeof item.description === "string" ? item.description
+          : typeof item.text === "string" ? item.text
+          : "";
+
+        if (title || link) {
+          results.push({
+            title,
+            link,
+            snippet,
+            position: results.length + 1,
+          });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+        throw new McpError(ErrorCode.InternalError, "You.com search request timed out");
+      } else if (axios.isAxiosError(error)) {
+        throw new McpError(ErrorCode.InternalError, `You.com HTTP error: ${error.message}`);
+      } else {
+        throw new McpError(ErrorCode.InternalError, `You.com search error: ${(error as Error).message}`);
+      }
+    }
+  }
+}
+
+/**
  * DuckDuckGo search implementation
  */
 class DuckDuckGoSearcher {
@@ -384,6 +493,7 @@ class WebContentFetcher {
   }
 }
 
+const youSearcher = new YouSearcher();
 const searcher = new DuckDuckGoSearcher();
 const fetcher = new WebContentFetcher();
 
@@ -392,6 +502,40 @@ const createContextAdapter = (): Context => ({
     /* no-op */
   },
 });
+
+server.registerTool(
+  "YouWebSearch",
+  {
+    description:
+      "Initiates a web search query using the You.com search engine and returns a well-structured list of findings. Requires the YDC_API_KEY environment variable to be set. Get a key at https://you.com/platform/api-keys. Input the keywords, question, or topic you want to search for as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
+    inputSchema: {
+      query: z
+        .string()
+        .min(1, "Query is required")
+        .describe("Search query string"),
+      maxResults: z
+        .number()
+        .int()
+        .min(1)
+        .max(25)
+        .optional()
+        .describe("Maximum number of results to return (default: 10)"),
+    },
+  },
+  async (args) => {
+    const context = createContextAdapter();
+    const searchResults = await youSearcher.search(
+      args.query,
+      context,
+      args.maxResults ?? 10,
+    );
+    const result = youSearcher.formatResultsForLLM(searchResults);
+
+    return {
+      content: [{ type: "text", text: result }],
+    };
+  },
+);
 
 server.registerTool(
   "DuckDuckGoWebSearch",

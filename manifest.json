@@ -23,6 +23,10 @@
   },
   "tools": [
     {
+      "name": "YouWebSearch",
+      "description": "Initiates a web search query using the You.com search engine and returns a well-structured list of findings. Requires the YDC_API_KEY environment variable to be set. Get a key at https://you.com/platform/api-keys."
+    },
+    {
       "name": "DuckDuckGoWebSearch",
       "description": "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided."
     },
