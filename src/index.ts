@@ -195,6 +195,64 @@ class DuckDuckGoSearcher {
 }
 
 /**
+ * You.com search implementation (keyless free tier, 100 searches/day per IP)
+ *
+ * MINIMAL: keyless endpoint only — the free tier is the ceiling.
+ * Upgrade path: set YDC_API_KEY and switch to POST with X-API-Key for higher limits.
+ */
+class YoucomSearcher {
+  private static readonly ENDPOINT = "https://api.you.com/v1/agents/search";
+  private static readonly USER_AGENT = "youdotcom-integration/pinkpixel-dev-web-scout-mcp";
+
+  private rateLimiter: RateLimiter;
+
+  constructor() {
+    this.rateLimiter = new RateLimiter();
+  }
+
+  // Returns SearchResult[] on success (possibly empty when You.com matched nothing).
+  // Throws on failure (timeout, HTTP error, or unexpected response shape) so callers
+  // can distinguish a failed search from a successful empty one — a failed search is
+  // not an empty search. Operator-visible diagnostics go through ctx.error.
+  async search(query: string, ctx: Context, maxResults: number = 10): Promise<SearchResult[]> {
+    await this.rateLimiter.acquire();
+
+    const response = await axios.get(YoucomSearcher.ENDPOINT, {
+      params: { query, max_results: maxResults },
+      headers: { "User-Agent": YoucomSearcher.USER_AGENT },
+      timeout: 15000,
+    }).catch(async (error: unknown) => {
+      if (axios.isAxiosError(error) && error.code === "ECONNABORTED") {
+        await ctx.error("You.com search request timed out");
+        throw new Error("You.com search request timed out");
+      }
+      if (axios.isAxiosError(error)) {
+        await ctx.error(`You.com HTTP error: ${error.message}`);
+        throw new Error(`You.com HTTP error: ${error.message}`);
+      }
+      await ctx.error(`Unexpected error during You.com search: ${(error as Error).message}`);
+      throw new Error(`Unexpected error during You.com search: ${(error as Error).message}`);
+    });
+
+    const web = response.data?.results?.web;
+    if (!Array.isArray(web)) {
+      await ctx.error("You.com returned an unexpected response format (missing results.web array)");
+      throw new Error("You.com returned an unexpected response format (missing results.web array)");
+    }
+
+    return web
+      .filter((r: { url?: unknown }) => typeof r.url === "string" && r.url.length > 0)
+      .slice(0, maxResults)
+      .map((r: { title?: string; url: string; description?: string }, i: number) => ({
+        title: r.title ?? "(untitled)",
+        link: r.url,
+        snippet: r.description ?? "",
+        position: i + 1,
+      }));
+  }
+}
+
+/**
  * Web content fetcher with memory management optimizations
  */
 class WebContentFetcher {
@@ -385,6 +443,7 @@ class WebContentFetcher {
 }
 
 const searcher = new DuckDuckGoSearcher();
+const youcomSearcher = new YoucomSearcher();
 const fetcher = new WebContentFetcher();
 
 const createContextAdapter = (): Context => ({
@@ -423,6 +482,65 @@ server.registerTool(
 
     return {
       content: [{ type: "text", text: result }],
+      isError: false,
+    };
+  },
+);
+
+server.registerTool(
+  "YoucomWebSearch",
+  {
+    description:
+      "Searches the web using You.com's keyless search API (100 searches/day per IP, no API key required). Returns ranked web results with titles, URLs, and descriptions. Useful as an alternative to DuckDuckGo when you need different results or when DuckDuckGo is rate-limited.",
+    inputSchema: {
+      query: z
+        .string()
+        .min(1, "Query is required")
+        .describe("Search query string"),
+      maxResults: z
+        .number()
+        .int()
+        .min(1)
+        .max(10)
+        .optional()
+        .describe("Maximum number of results to return (default: 5, max: 10)"),
+    },
+  },
+  async (args) => {
+    const context = createContextAdapter();
+    let searchResults: SearchResult[];
+    try {
+      searchResults = await youcomSearcher.search(
+        args.query,
+        context,
+        args.maxResults ?? 5,
+      );
+    } catch (error) {
+      // A failed search (timeout, HTTP error, bad response shape) is an error,
+      // not an empty-result success. ctx.error already logged operator diagnostics.
+      return {
+        content: [{ type: "text", text: `You.com search failed: ${(error as Error).message}` }],
+        isError: true,
+      };
+    }
+
+    if (!searchResults.length) {
+      return {
+        content: [{ type: "text", text: "No results were found for your search query." }],
+        isError: false,
+      };
+    }
+
+    const output: string[] = [`Found ${searchResults.length} search results via You.com:\n`];
+    for (const result of searchResults) {
+      output.push(`${result.position}. ${result.title}`);
+      output.push(`   URL: ${result.link}`);
+      output.push(`   Summary: ${result.snippet}`);
+      output.push("");
+    }
+
+    return {
+      content: [{ type: "text", text: output.join("\n") }],
       isError: false,
     };
   },
