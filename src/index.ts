@@ -210,43 +210,45 @@ class YoucomSearcher {
     this.rateLimiter = new RateLimiter();
   }
 
+  // Returns SearchResult[] on success (possibly empty when You.com matched nothing).
+  // Throws on failure (timeout, HTTP error, or unexpected response shape) so callers
+  // can distinguish a failed search from a successful empty one — a failed search is
+  // not an empty search. Operator-visible diagnostics go through ctx.error.
   async search(query: string, ctx: Context, maxResults: number = 10): Promise<SearchResult[]> {
-    try {
-      await this.rateLimiter.acquire();
+    await this.rateLimiter.acquire();
 
-      const response = await axios.get(YoucomSearcher.ENDPOINT, {
-        params: { query, max_results: maxResults },
-        headers: { "User-Agent": YoucomSearcher.USER_AGENT },
-        timeout: 15000,
-      });
-
-      const web = response.data?.results?.web;
-      if (!Array.isArray(web)) {
-        await ctx.error("You.com returned an unexpected response format (missing results.web array)");
-        return [];
-      }
-
-      const results: SearchResult[] = web
-        .filter((r: { url?: unknown }) => typeof r.url === "string" && r.url.length > 0)
-        .slice(0, maxResults)
-        .map((r: { title?: string; url: string; description?: string }, i: number) => ({
-          title: r.title ?? "(untitled)",
-          link: r.url,
-          snippet: r.description ?? "",
-          position: i + 1,
-        }));
-
-      return results;
-    } catch (error) {
+    const response = await axios.get(YoucomSearcher.ENDPOINT, {
+      params: { query, max_results: maxResults },
+      headers: { "User-Agent": YoucomSearcher.USER_AGENT },
+      timeout: 15000,
+    }).catch(async (error: unknown) => {
       if (axios.isAxiosError(error) && error.code === "ECONNABORTED") {
         await ctx.error("You.com search request timed out");
-      } else if (axios.isAxiosError(error)) {
-        await ctx.error(`You.com HTTP error: ${error.message}`);
-      } else {
-        await ctx.error(`Unexpected error during You.com search: ${(error as Error).message}`);
+        throw new Error("You.com search request timed out");
       }
-      return [];
+      if (axios.isAxiosError(error)) {
+        await ctx.error(`You.com HTTP error: ${error.message}`);
+        throw new Error(`You.com HTTP error: ${error.message}`);
+      }
+      await ctx.error(`Unexpected error during You.com search: ${(error as Error).message}`);
+      throw new Error(`Unexpected error during You.com search: ${(error as Error).message}`);
+    });
+
+    const web = response.data?.results?.web;
+    if (!Array.isArray(web)) {
+      await ctx.error("You.com returned an unexpected response format (missing results.web array)");
+      throw new Error("You.com returned an unexpected response format (missing results.web array)");
     }
+
+    return web
+      .filter((r: { url?: unknown }) => typeof r.url === "string" && r.url.length > 0)
+      .slice(0, maxResults)
+      .map((r: { title?: string; url: string; description?: string }, i: number) => ({
+        title: r.title ?? "(untitled)",
+        link: r.url,
+        snippet: r.description ?? "",
+        position: i + 1,
+      }));
   }
 }
 
@@ -506,11 +508,21 @@ server.registerTool(
   },
   async (args) => {
     const context = createContextAdapter();
-    const searchResults = await youcomSearcher.search(
-      args.query,
-      context,
-      args.maxResults ?? 5,
-    );
+    let searchResults: SearchResult[];
+    try {
+      searchResults = await youcomSearcher.search(
+        args.query,
+        context,
+        args.maxResults ?? 5,
+      );
+    } catch (error) {
+      // A failed search (timeout, HTTP error, bad response shape) is an error,
+      // not an empty-result success. ctx.error already logged operator diagnostics.
+      return {
+        content: [{ type: "text", text: `You.com search failed: ${(error as Error).message}` }],
+        isError: true,
+      };
+    }
 
     if (!searchResults.length) {
       return {
